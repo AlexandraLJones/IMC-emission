@@ -1,0 +1,9 @@
+#!/bin/tcsh
+# $Revision: 6 $, $Date: 2009-03-10 20:13:07 +0000 (Tue, 10 Mar 2009) $
+# $URL: http://i3rc-monte-carlo-model.googlecode.com/svn/trunk/Clean $
+
+echo "Cleaning in src directory"; cd src; make clean; cd ..
+echo "Cleaning in Integrators directory"; cd Integrators; make clean; cd ..
+echo "Cleaning in Drivers directory"; cd Drivers; make clean; cd ..
+echo "Cleaning in Tools directory"; cd Tools; make clean; cd ..
+echo "Cleaning in Domain-Files directory";cd Domain-Files; make clean; cd ..

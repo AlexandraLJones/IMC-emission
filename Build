@@ -1,0 +1,10 @@
+#!/bin/tcsh
+# $Revision: 5 $, $Date: 2009-03-10 20:11:33 +0000 (Tue, 10 Mar 2009) $
+# $URL: http://i3rc-monte-carlo-model.googlecode.com/svn/trunk/Build $
+
+echo "Building in src directory"; cd src; make; cd ..
+echo "Building in Integrators directory"; cd Integrators; make; cd ..
+echo "Building in Drivers directory"; cd Drivers; make; cd ..
+echo "Building in Tools directory"; cd Tools; make; cd ..
+echo "building in Domain-Files"; cd Domain-Files; make; cd ..
+
