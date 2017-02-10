@@ -10,15 +10,13 @@ rtObjs =  $(CodeDir)/characterUtils.o $(CodeDir)/numericUtilities.o \
           $(CodeDir)/RandomNumbersForMC.o $(CodeDir)/monteCarloIllumination.o \
           $(CodeDir)/surfaceProperties.o $(IntegDir)/monteCarloRadiativeTransfer.o
 
-Targets = monteCarloDriver planeParallel
+Targets = monteCarloDriver
 
 all: $(Targets)
 
 monteCarloDriver: monteCarloDriver.o $(rtObjs)
 monteCarloDriver.o: monteCarloDriver.f95 $(rtObjs)
 
-planeParallel: planeParallel.o $(rtObjs)
-planeParallel.o: planeParallel.f95 $(rtObjs)
 
 clean::
 	/bin/rm *.lst *.mod *.o $(Targets)
