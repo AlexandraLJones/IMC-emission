@@ -47,6 +47,12 @@ program ParticleFileToDomain
  !      Reff? are the effective radii [microns] of the components.  
  !      The type number refers to the scattering table number 
  !      (in the range 1 to number of scattering tables input).
+ !    4) Specifies temperatures and heights only.  Header:
+ !        4                [format type]
+!         nX nY nZ         [number of X, Y, Z grid cells]
+ !        deltaX deltaY    [X and Y grid spacing in km]
+ !        Zlevels(1:nZ+1)  [increasing heights of cell boundaries in km]
+ !        Temps(1:nZ+1)    [temperatures of boundaries (K)]
  !
  ! The scattering properties for each component are specified in
  ! files containing I3RC Monte Carlo phase function table objects
@@ -86,7 +92,7 @@ program ParticleFileToDomain
    ! Input parameters
   character(len=256)   :: NamelistFileName = ""
   character(len=256)   :: ParticleFileName = ""
-  integer              :: numScatTables
+  integer              :: numScatTables=0
   integer, parameter   :: maxNumComps=5
   character(len=256)   :: ScatTableFiles(maxNumComps) = ""
   character(len=256)   :: MolecAbsFileName = ""
@@ -108,17 +114,17 @@ program ParticleFileToDomain
   namelist /physicalProperties/  DropNumConc, RayleighWavelength
   
    ! Local variables
-  integer              :: nX, nY, nZp, nZt
+  integer              :: nX, nY, nZp, nZt, Pfile_type
   integer              :: i, j, k, n, iscat, ix, iy, iz, il
   integer              :: maxNretab, izLevelBase
   real(8)                 :: deltaX, deltaY, x, y, z
-  real                 :: f
+  real                  :: f
   real(8), allocatable    :: Zpar(:), TempPar(:)
   integer, allocatable :: nComp(:,:,:), ptype(:,:,:,:)
   real, allocatable    :: MassCont(:,:,:,:), Reff(:,:,:,:)
   integer, allocatable :: Nretab(:)
   real, allocatable    :: ReffTable(:,:)
-  real(8), allocatable    :: ExtinctTable(:,:), ssaTable(:,:), temps(:,:,:)
+  real(8), allocatable    ::  ExtinctTable(:,:), ssaTable(:,:), temps(:,:,:)
   real(8), allocatable    :: Zlevels(:), Temp(:)
   real(8), allocatable    :: GasExt(:), RaylExt(:)
   real(8), allocatable    :: ssaProf(:)
@@ -153,8 +159,6 @@ program ParticleFileToDomain
   !
   if(len_trim(ParticleFileName) == 0)   stop "Must specify particle file name." 
   if(len_trim(outputFileName) == 0) stop "Must specify output file name." 
-  if(all(len_trim(ScatTableFiles) == 0)) &
-    stop "Must specify as many scattering tables as there are components"
 
   if(DropNumConc < 0) stop "DropNumConc must be positive" 
   if(RayleighWavelength < 0) stop "RayleighWavelength must be non-negative." 
@@ -169,14 +173,23 @@ program ParticleFileToDomain
   if(len_trim(outputFileName) == 0) stop "Must specify output file." 
 
   ! Read in the particle properties file
-  call read_particle_file_size (ParticleFileName, nX, nY, nZp)
+ 
+  call read_particle_file_size (ParticleFileName, nX, nY, nZp, Pfile_type)
   allocate (Zpar(nZp+1), TempPar(nZp+1))
-  allocate (nComp(nX,nY,nZp), ptype(numScatTables,nX,nY,nZp))
-  allocate (MassCont(numScatTables,nX,nY,nZp), Reff(numScatTables,nX,nY,nZp))
-  call read_particle_file (ParticleFileName, nX, nY, nZp, numScatTables, &
+  if(Pfile_type .lt. 4)then
+    allocate (nComp(nX,nY,nZp), ptype(numScatTables,nX,nY,nZp))
+    allocate (MassCont(numScatTables,nX,nY,nZp), Reff(numScatTables,nX,nY,nZp))
+    call read_particle_file (ParticleFileName, nX, nY, nZp, numScatTables, &
                            DropNumConc,  deltaX, deltaY, Zpar, TempPar, & 
                            nComp, ptype, MassCont, Reff)
-
+  else  
+  open (unit=2, file=trim(ParticleFileName), status='old')
+  read (2,*) ! Pfile_type
+  read (2,*) ! nx, ny, nzp
+  read (2,*) deltaX, deltaY
+  read (2,*) (zpar(iz), iz=1, nzp+1)
+  read (2,*) (TempPar(iz), iz=1, nzp+1)
+  end if
    ! Combine the particle levels and extra levels
   nZt = nZp + numOtherLevels
   allocate (Zlevels(nZt+1), Temp(nZt+1))
@@ -184,7 +197,6 @@ program ParticleFileToDomain
                         numOtherLevels,     &
                         OtherHeights(:numOtherLevels), OtherTemps(:numOtherLevels), &
                         nZt, Zlevels, Temp, izLevelBase)
-  deallocate(ZPar,TempPar)
   allocate (temps(nX,nY,nZt))
   call create_temp_field (nZt, nX, nY, Temp, temps)
 
@@ -204,9 +216,11 @@ program ParticleFileToDomain
   ! -----------------------------------------
   !  Read in the scattering tables
   !
+ if(any(len_trim(ScatTableFiles) > 0))then
   allocate (phaseFuncTables(numScatTables), Nretab(numScatTables))
    ! Read the scattering tables and get the number of entries in each table
   do i = 1, numScatTables
+PRINT *, ScatTableFiles(i)
     call read_PhaseFunctionTable(fileName = ScatTableFiles(i), &
                                  table = phaseFuncTables(i),   &
                                  status = status) 
@@ -284,6 +298,7 @@ program ParticleFileToDomain
 
   deallocate (MassCont, Reff, ptype, Ncomp)
   deallocate (Nretab, ReffTable, ExtinctTable, ssaTable)
+ end if
 
   ! -----------------------------------------
   ! Package the optical properties in a domain object
@@ -293,7 +308,7 @@ program ParticleFileToDomain
   !
   thisDomain = new_Domain (deltaX * (/ (i, i = 0, nX) /), &
                            deltaY * (/ (i, i = 0, nY) /), &
-                           Zlevels(1:nZt+1),temps, status)
+                           Zlevels(1:nZt+1),temps, status=status)
   call printStatus(status)
 
 
@@ -309,13 +324,16 @@ program ParticleFileToDomain
     call printStatus(status)
     call finalize_PhaseFunctionTable (phaseFuncTables(i))
   end do
-  deallocate (extinct, ssa, phaseFuncIndex, phaseFuncTables)
-PRINT *, "deallocated ext, ssa, phasei, phaset"
+  if (ALLOCATED (extinct)) deallocate (extinct)
+  if (ALLOCATED (ssa)) deallocate ( ssa) 
+  if (ALLOCATED (phaseFuncIndex)) deallocate (phaseFuncIndex)
+  if (ALLOCATED (phaseFuncTables)) deallocate ( phaseFuncTables)
+
    ! Add the Rayleigh scattering optical properties
   allocate (ssaProf(nZt), phaseIndex(nZt))
   if (any(RaylExt(:) > 0.0)) then
     print *, "Adding Rayleigh scattering"
-    ssaProf(:) = 1.0_8
+    ssaProf(:) = 1.0
     phaseIndex(:) = 1
     LegendreCoefs(1:2) = (/ 0.0, 0.5 /) / (/ 2.*1. + 1., 2.*2. + 1. /)
     PhaseFuncs(1) = new_PhaseFunction (LegendreCoefs(1:2), status=status)
@@ -331,7 +349,6 @@ PRINT *, "deallocated ext, ssa, phasei, phaset"
     call printStatus(status)
     call finalize_PhaseFunctionTable (OnePhaseFuncTable)
   endif
-  deallocate(RaylExt)
 
    ! Add the molecular absorption optical properties
   if (any(GasExt(:) > 0.0)) then
@@ -346,39 +363,31 @@ PRINT *, "deallocated ext, ssa, phasei, phaset"
                                                 status=status)
     call printStatus(status)
     call finalize_phaseFunction (phaseFuncObject)
-PRINT *, "about to add molec abs"
     call addOpticalComponent (thisDomain, 'Molecular absorption', &
                               GasExt(:), ssaProf(:), phaseIndex(:), &
                               OnePhaseFuncTable, status = status)
-PRINT *, "added molec abs"
     call printStatus(status)
-PRINT *," printes status"
     call finalize_PhaseFunctionTable (OnePhaseFuncTable)
-PRINT *, "finalized Phase Table"
   endif
-PRINT *, "exited if statement"
-  deallocate (ssaProf, phaseIndex,GasExt)
-PRINT *, "deallocated 1"
-!  deallocate (RaylExt, GasExt, Zpar, TempPar)
-!PRINT *, "deallocated 2"  
+  deallocate (ssaProf, phaseIndex)
+  deallocate (RaylExt, GasExt, Zpar, TempPar)
+  
   !
   ! Write the domain to a file
   !
-PRINT *, "about to write to domain"
   call write_Domain(thisDomain, outputFileName, status)
-PRINT *, "wrote to domain"
   call printStatus(status)
   call finalize_Domain(thisDomain)
 end program ParticleFileToDomain
 ! --------------------------------------------------------------------------
 
-subroutine read_particle_file_size (parfile, nx, ny, nzp)
+subroutine read_particle_file_size (parfile, nx, ny, nzp, ftype)
   implicit none
   character(len=*), intent(in) :: parfile
-  integer, intent(out) :: nx, ny, nzp
+  integer, intent(out) :: nx, ny, nzp, ftype
   
   open (unit=2, file=trim(parfile), status='old')
-  read (2,*)
+  read (2,*) ftype
   read (2,*) nx, ny, nzp
   close (2)
 end subroutine read_particle_file_size
@@ -461,9 +470,10 @@ subroutine read_particle_file (parfile, nx, ny, nzp, nscattab, &
           reff(1:nc,ix,iy,iz) = re(1:nc)
         endif
       enddo  
-    
+  
+ 
   case default
-    stop 'read_particle_file: Must be type 2 or 3 particle properties file.'
+    stop 'read_particle_file: Must be recognized type particle properties file.'
   end select 
   
 190 continue
@@ -481,7 +491,7 @@ subroutine organize_levels (nZp, Zpar, TempPar, &
   implicit none
   integer, intent(in) :: nZp, numOtherLevels, nZt
   real(8),    intent(in) :: Zpar(nZp+1), TempPar(nZp+1)
-  real(8),    intent(in) :: OtherHeights(numOtherLevels), OtherTemps(numOtherLevels)
+  real,    intent(in) :: OtherHeights(numOtherLevels), OtherTemps(numOtherLevels)
   real(8),    intent(out) :: Zlevels(nZt+1), Temp(nZt+1)
   integer, intent(out) :: izLevelBase
   integer :: i, j, k
@@ -545,6 +555,8 @@ subroutine read_molec_abs_file (MolecAbsFileName, nZt, Zlevels, GasExt)
     read (2,*) Zlevin(1:nZ+1)
     if (nZ /= nZt .or. any(abs(Zlevin(:) - Zlevels(:)) > spacing(Zlevels))) then
       print *, 'read_molec_abs_file: input Z levels do not match'
+      print *, nZ, nZt
+      print *, abs(Zlevin(:) - Zlevels(:))
       stop
     endif
     deallocate (Zlevin)
@@ -567,13 +579,12 @@ subroutine rayleigh_extinct (nzt, Zlevels, Temp, wavelen, RaylExt)
  ! The extinction profile is returned with zeros if wavelen<=0.
   implicit none
   integer, intent(in) :: nzt
-  real(8),    intent(in) :: Zlevels(nzt+1), Temp(nzt+1) !!! assumes Zlevels is in km!!!!
-  real,    intent(in) ::  wavelen
+  real(8),    intent(in) :: Zlevels(nzt+1), Temp(nzt+1)
+  real ,    intent(in) :: wavelen
   real(8),    intent(out) :: RaylExt(nzt)
   
   integer :: i
-  real    :: raylcoef, pres, lapse, ts, dz
-  real(8) :: extlev(nzt+1)
+  real    :: raylcoef, pres, lapse, ts, dz, extlev(nzt+1)
 
   raylcoef = 2.97E-4*wavelen**(-4.15+0.2*wavelen)
 
