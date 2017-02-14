@@ -8,8 +8,6 @@
 module numericUtilities
   implicit none
   private 
-!  public :: computeLobattoTerms, computeGaussLegendreTerms, &
-!            computeLegendrePolynomials, findIndex
 
   interface findIndex
      module procedure findIndexDouble, findIndexReal, findIndexMixed

@@ -38,15 +38,9 @@ contains
     !
     integer :: ierr
 !    external :: MPI_Comm_f2c ! added 07/24/12 by Alexandra Jones to fix a bug
-!PRINT*, 'entered subroutine initializeProcesses'
     call MPI_INIT(ierr)
-!PRINT*, 'error after MPI_INIT', ierr
-!    call MPI_COMM_RANK( MPI_COMM_WORLD, MPI_Comm_f2c(thisProcNum), ierr )
     call MPI_COMM_RANK( MPI_COMM_WORLD, thisProcNum, ierr )
-!PRINT*, 'error after MPI_COMM_RANK', ierr
-!    call MPI_COMM_SIZE( MPI_Comm_f2c(MPI_COMM_WORLD), numProcs, ierr )
     call MPI_COMM_SIZE( MPI_COMM_WORLD, numProcs, ierr )
-!PRINT*, 'error after MPI_COMM_SIZE', ierr
     
     MasterProc = (thisProcNum == 0)
   end subroutine initializeProcesses

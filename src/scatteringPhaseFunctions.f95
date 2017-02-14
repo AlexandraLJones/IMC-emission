@@ -434,7 +434,6 @@ contains
       deallocate(extinction, singleScatteringAlbedo, values)
     else 
       thisCopy = new_PhaseFunctionTable(original%phaseFunctions, original%key, &
-      !                                 phaseFunctionDescriptions = original%phaseFunctionDescriptions,    &
                                         tableDescription = original%description, status = status)
     end if 
   end function copy_PhaseFunctionTable

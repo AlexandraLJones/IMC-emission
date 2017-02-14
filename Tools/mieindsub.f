@@ -48,7 +48,6 @@ C         Get the Gauss-Legendre quadrature abscissas and weights
         IF (NQUAD .GT. MAXN) THEN
           PRINT *, 'MIE_ONE: MAXN exceeded by NQUAD'
           STOP
-!          NQUAD = MAXN
         ENDIF
         CALL GAUSQUAD (NQUAD, MU, WTS)
         LASTNQUAD = NQUAD

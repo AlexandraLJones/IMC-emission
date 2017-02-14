@@ -425,7 +425,6 @@ contains
                                                thisIntegrator%intensityByComponent(:, :, d, j) / &
                                                                                    numPhotonsPerColumn(:, :)
         end forall
-!PRINT *, "average column intensity normalized by photonsPerCol =", sum(thisIntegrator%intensity(:,:,1))/real (numX * numY)
         if(thisIntegrator%recScatOrd) then
           forall(d = 1:numIntensityDirections, p = 0:thisIntegrator%numRecScatOrd)
             thisIntegrator%intensityByScatOrd(:, :, d, p) =  &
@@ -484,7 +483,6 @@ contains
     y0 = thisIntegrator%y0; yMax = thisIntegrator%yPosition(size(thisIntegrator%yPosition))
     z0 = thisIntegrator%z0; zMax = thisIntegrator%zPosition(size(thisIntegrator%zPosition))
     if(thisIntegrator%computeIntensity) then
-!PRINT *, "intensity directions=", thisIntegrator%intensityDirections
       numIntensityDirections = size(thisIntegrator%intensityDirections, 2)
       allocate(contributions(numIntensityDirections), &
                 xIndexF(numIntensityDirections), yIndexF(numIntensityDirections))
@@ -494,13 +492,10 @@ contains
     !
     nPhotons = 0; nBad = 0
     photonLoop: do
-!PRINT *, nPhotons
       if(.not. morePhotonsExist(incomingPhotons)) exit photonLoop ! This means we've used all the photons
       call getNextPhoton(incomingPhotons, xPos, yPos, zPos, mu, phi, status)
-!      if(zPos .ge. 36)PRINT *, zPos
       if(stateIsFailure(status)) exit photonLoop
       scatteringOrder = 0
-!PRINT *, 'mu=', mu, ' phi=', phi
       directionCosines(:) = makeDirectionCosines(mu, phi)
       photonWeight = 1. 
       nPhotons = nPhotons + 1
@@ -509,30 +504,19 @@ contains
       !   Translate these positions to the local domain
       !
       XIndex = 1; yIndex = 1; zIndex = 1
-!PRINT *, 'xPos before=', xPos
       xPos = x0 + xPos * (xMax - x0) 
-!PRINT *, 'xPos after=', xPos
       yPos = y0 + yPos * (yMax - y0)
       call findXYIndicies(thisIntegrator, xPos, yPos, xIndex, yIndex)
       if(thisIntegrator%zRegularlySpaced)then
         zPos = z0 + zPos * (zMax - z0)  
         call findZIndex(thisIntegrator, zPos, zIndex)    
       else
-!        zIndex = 1-(zPos-FLOOR(zPos))+((SIZE(thisIntegrator%zPosition)-1)*zPos)
-!        zPos = thisIntegrator%zPosition(zIndex) + (zPos-FLOOR(zPos))* (thisIntegrator%zPosition(zIndex+1)-thisIntegrator%zPosition(zIndex)) ! convert the zPos to one that works for an irregularly spaced grid. This line must follow and not preceed the zPos= line above.
          numZ = SIZE(thisIntegrator%zPosition) -1
-         remainder = (zPos-z0)*numZ - FLOOR((zPos-z0)*numZ) !These lines added 11/4/2013 to replace the above calculations that seemed inaccuarate for irregularly spaced vertical levels
+         remainder = (zPos-z0)*numZ - FLOOR((zPos-z0)*numZ) !These lines added 11/4/2013 to replace the previous calculations that seemed inaccuarate for irregularly spaced vertical levels
          zIndex = MIN(FLOOR((zPos-z0)*numZ)+1, numZ)
          zPos = thisIntegrator%zPosition(zIndex) + remainder*(thisIntegrator%zPosition(zIndex+1)-thisIntegrator%zPosition(zIndex))
       end if
 
-!if (zPos > 0.0_8)then
-!  option2(xIndex,yIndex,Zindex)=option2(xIndex,yIndex,Zindex)+1
-!end if
-
-!write(14,"(I7, 2X, 3I5)") nPhotons, xIndex, yIndex, zIndex
-!PRINT *, xIndex, yIndex, zIndex
-!if(zIndex .ge. 36)PRINT *, zIndex, zPos, thisIntegrator%zRegularlySpaced
 
       if(thisIntegrator%LW_flag > 0)then ! if we are doing a LW simulation we want to calculate the emmission contribution to the radiance and the absorbed flux
         if(zPos > 0.0_8)then
@@ -556,7 +540,6 @@ contains
                                                randomNumbers, scatteringOrder, &
                                                 contributions, xIndexF(:), yIndexf(:))
            end if
-!PRINT *, "COntribution to radiance from photon ", nPhotons, " is ", contributions
            if(thisIntegrator%recScatOrd .and. scatteringOrder <= thisIntegrator%numRecScatOrd) then
             !only record scattering order if it is within bounds
               forall(i = 1:numIntensityDirections)
@@ -618,28 +601,6 @@ contains
           end if 
           
           thisIntegrator%fluxUp(xIndex, yIndex) = thisIntegrator%fluxUp(xIndex, yIndex) + photonWeight
-!          if (scatteringOrder .eq. 0 .and. thisIntegrator%computeIntensity)then
-!            call computeIntensityContribution(thisIntegrator, photonWeight, &
-!                                                xPos,   yPos,   zPos,         &
-!                                                xIndex, yIndex, zIndex,       &
-!                                                directionCosines, -1,  &
-!                                                randomNumbers, scatteringOrder, &
-!                                                contributions, xIndexF(:), yIndexf(:))
-!            if(thisIntegrator%recScatOrd .and. scatteringOrder <= thisIntegrator%numRecScatOrd) then
-!            !only record scattering order if it is within bounds              
-!              forall(i = 1:numIntensityDirections)
-!                thisIntegrator%intensityByScatOrd(xIndexF(i), yIndexF(i), i, scatteringOrder)   = &
-!                  thisIntegrator%intensityByScatOrd(xIndexF(i), yIndexF(i), i, scatteringOrder) + &
-!                                                                                    contributions(i)
-!              end forall
-!            end if
-!              forall(i = 1:numIntensityDirections)
-!                thisIntegrator%intensity(xIndexF(i), yIndexF(i), i) =  &
-!                  thisIntegrator%intensity(xIndexF(i), yIndexF(i), i) + contributions(i)
-!                thisIntegrator%intensityByComponent(xIndexF(i), yIndexF(i), i, 0) = &
-!                  thisIntegrator%intensityByComponent(xIndexF(i), yIndexF(i), i, 0) + contributions(i)  ! as of right now this last line attributes these contributions to the 0th component aka the surafce, incorrectly-not sure how to resolve this, can we give it a value of -1? should we just drop these lines? should I add in this functionality for th atmosphere? should we randomly choose one of the components to ahve done the scattering?
-!              end forall 
-!          end if
 
           if(thisIntegrator%recScatOrd .and. scatteringOrder <= thisIntegrator%numRecScatOrd) then 
           !only record scattering order if it is within bounds
@@ -717,7 +678,6 @@ contains
                                               directionCosines, 0,          &
                                               randomNumbers, scatteringOrder, &
                                               contributions, xIndexF(:), yIndexF(:))     
-!PRINT *, "COntribution to radiance from photon ", nPhotons, " is ", contributions, " for scattering order ", scatteringorder, " off the surface."         
             if(thisIntegrator%recScatOrd .and. scatteringOrder <= thisIntegrator%numRecScatOrd) then
             !only record scattering order if it is within bounds              
               forall(i = 1:numIntensityDirections)
@@ -813,7 +773,6 @@ contains
                                                 directionCosines, component,  &
                                                 randomNumbers, scatteringOrder, &
                                                 contributions, xIndexF(:), yIndexf(:))   
-!PRINT *, "COntribution to radiance from photon ", nPhotons, " is ", contributions, " for scattering order ", scatteringorder, " off the atmosphere."           
     
               forall (i = 1:numIntensityDirections)
                 thisIntegrator%intensity(xIndexF(i), yIndexf(i), i) =  &
@@ -869,7 +828,6 @@ contains
     else 
         call setStateToFailure(status, "computeRadiativeTransfer: Error.")
     end if
-!PRINT *, "Numphotons Processed=", nPhotons, " Numphotons not processed=", nbad, " sum of intensity across domain = ", sum(thisIntegrator%intensity)    
   end subroutine computeRT
   !------------------------------------------------------------------------------------------
   ! Reporting 
@@ -1037,7 +995,6 @@ contains
         call setStateToFailure(status, "reportResults: intensity array has wrong dimensions.") 
       else
         intensity(:, :, :) = thisIntegrator%intensity(:, :, :)
-!PRINT *, "mean intensity in reportResults =", sum(intensity(:,:,1))/numColumns
       end if
     end if
 
@@ -1695,7 +1652,6 @@ contains
   ! Functions for use inside the module 
   !------------------------------------------------------------------------------------------
  subroutine findXYIndicies(thisIntegrator, xPos, yPos, xIndex, yIndex)
-! pure subroutine findXYIndicies(thisIntegrator, xPos, yPos, xIndex, yIndex)
     type(integrator), intent(in ) :: thisIntegrator
     real(8),             intent(in ) :: xPos, yPos
     integer,          intent(inout) :: xIndex, yIndex
@@ -1708,7 +1664,6 @@ contains
                    size(thisIntegrator%totalExt, 2))
       !
       ! Insure against rounding errors
-!PRINT *, 'findXindex xPos', xPos
       if(abs(thisIntegrator%xPosition(xIndex+1) - xPos) < spacing(xPos)) xIndex = xIndex + 1
       if(abs(thisIntegrator%yPosition(yIndex+1) - yPos) < spacing(yPos)) yIndex = yIndex + 1
       if(xIndex == size(thisIntegrator%xPosition)) xIndex = 1
@@ -2007,9 +1962,6 @@ contains
   subroutine accumulateExtinctionAlongPath(thisIntegrator, directionCosines,         &
                                                 xPos, yPos, zPos, xIndex, yIndex, zIndex, &
                                                 extAccumulated, extToAccumulate)
-!  pure subroutine accumulateExtinctionAlongPath(thisIntegrator, directionCosines,         &
-!                                                xPos, yPos, zPos, xIndex, yIndex, zIndex, &
-!                                                extAccumulated, extToAccumulate)
     !
     ! Trace through the medium in a given direction accumulating extinction 
     !   along the path. Tracing stops either when the boundary is reached or
@@ -2051,7 +2003,6 @@ contains
       ! How big a step must we take to reach the next edge?  Go the right direction (+ or -) 
       !    and find out for each dimension (but don't divide by zero).
       !
-!if(zIndex+SideIncrement(3) .gt. 37) PRINT *, zIndex, SideIncrement(3)
       where(abs(directionCosines) >= 2. * tiny(directionCosines))
         step(:) = (/ thisIntegrator%xPosition(xIndex + SideIncrement(1)) - xPos,     &
                      thisIntegrator%yPosition(yIndex + SideIncrement(2)) - yPos,     &

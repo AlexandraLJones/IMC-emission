@@ -1,13 +1,16 @@
+!Copyright 2009-2017, Alexandra L Jones
 ! Copyight 2003-2009, Regents of the University of Colorado. All right reserved
 ! Use and duplication is permitted under the terms of the 
 !   GNU public license, V2 : http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
 ! NASA has special rights noted in License.txt
 
 program monteCarloDriver
+! IMC+emission Date:10 Feb 2017
+! URL: https://github.com/AlexandraLJones/IMC-emission
+! Does monochromatic radiative transfer from solar or internal emission sources
+!--------------------------------------------------------------
   ! $Revision: 6 $, $Date: 2009-03-10 20:13:07 +0000 (Tue, 10 Mar 2009) $
   ! $URL: http://i3rc-monte-carlo-model.googlecode.com/svn/trunk/Example-Drivers/monteCarloDriver.f95 $
-  !Last edited 2011 by Maxwell Smith, Dept of Atmospheric Sciences, University of Illinois at Urbana-Champaign
-
   ! Monte Carlo radiative transfer program that computes top and bottom
   ! of domain pixel level outgoing fluxes, domain average absorption
   ! profile, 3D absorption fields, and domain top radiances from an 
@@ -157,28 +160,7 @@ program monteCarloDriver
   ! -----------------------------------------
   ! Start communications among multiple processes.
   !
-!PRINT*, 'about to call initializeProcesses' 
   call initializeProcesses(numProcs, thisProc)
-!PRINT*, 'returned from initializeProcesses'
-
-! temporary output file for the purposes of debugging
-!  write(voxel_file, '(A,I0.4)') "voxel.out.",thisProc
-!  write(photon_file, '(A,I0.4)') "photon.out.",thisProc
-!  write(col_file, '(A,I0.4)') "col.out.",thisProc
-!  write(row_file, '(A,I0.4)') "row.out.",thisProc
-!  write(horiz_file, '(A,I0.4)') "horiz.out.",thisProc
-!  write(diff_file, '(A,I0.4)') "diff.out.",thisProc
-!  write(voxel_file2, '(A,I0.4)') "voxel2.out.",thisProc
-!   write(batch_file, '(A,I0.4)') "batch.out.", thisProc
-
-!  open(unit=11, file=trim(voxel_file) , status='UNKNOWN')
-!  open(unit=12, file=trim(level_file) , status='UNKNOWN')
-!  open(unit=13, file=trim(col_file) , status='UNKNOWN')
-!  open(unit=14, file=trim(row_file) , status='UNKNOWN')
-!  open(unit=15, file=trim(horiz_file) , status='UNKNOWN')
-!  open(unit=16, file=trim(diff_file) , status='UNKNOWN')
-!  open(unit=17, file=trim(voxel_file2) , status='UNKNOWN')
-!  open(unit=51, file=trim(batch_file), status='UNKNOWN')
 
   ! -----------------------------------------
   ! Get the input variables from the namelist file
@@ -201,20 +183,12 @@ program monteCarloDriver
     nMu = int( (thetaFill(2) - thetafill(1))/thetafill(3)) +1
     nPhi = int((phiFill(2) - phiFill(1))/phiFill(3)) +1 
     
-!    if(thetaFill(2).eq.thetaFill(1)) nMu=1
-!    if(phiFill(2) .eq. phiFill(1)) nPhi = 1
 
     if (nMu >= 1 .and. nPhi >= 1) then
     allocate(mus(nMu), phis(nPhi))
     mus = thetaFill(1)+((/(REAL(N), N=0, nMu-1)/))*thetaFill(3) 
-!     FORALL (i=0:nMu-1)
-!        mus(i)=thetaFill(1) + (i*thetaFill(3))
-!     END FORALL
-      mus = cos(Pi/180. * mus)
+    mus = cos(Pi/180. * mus)
     phis= phiFill(1)  +((/(REAL(N),N=0,nPhi-1)/)*phiFill(3)) 
-!     FORALL (i=0:nPhi-1)
-!        phis(i)=phiFill(1) + (i*phiFill(3))
-!     END FORALL
     end if
  
     do i = 1,nMu
@@ -241,23 +215,17 @@ program monteCarloDriver
   !
   
   call read_Domain(domainFileName, thisDomain, status)
-!PRINT *, 'Driver: Read Domain'  
-  !call printStatus(status)
-  !call write_Domain(thisDomain, 'test_write.dom', status)
   call printStatus(status)
   call getInfo_Domain(thisDomain, numX = nx, numY = ny, numZ = nZ, status = status) 
-!print *, 'got info 1'   
   allocate(xPosition(nx+1), yPosition(ny+1), zPosition(nz+1))
   call getInfo_Domain(thisDomain,                                   &
                       xPosition = xPosition, yPosition = yPosition, &
                       zPosition = zPosition, numberOfComponents=numberOfComponents, status = status) 
-!print *, 'Driver: got domain info '
 
   ! Set up the integrator object - the integrator makes copies of the 
   !   3D distribution of optical properties, so we can release the resources
   mcIntegrator = new_Integrator(thisDomain, status = status)
   call printStatus(status)
-  !call finalize_Domain(thisDomain)
 
    ! Set the surface albedo, table sizes, and maybe the radiance directions
   call specifyParameters (mcIntegrator,                          &
@@ -313,7 +281,6 @@ program monteCarloDriver
                          status = status)
     call printStatus(status) 
   end if
-!PRINT *, 'Driver: Specified Parameters'
    ! Allocate and zero the arrays for radiative quantities and moments 
   allocate (voxel_tallys1(nX, nY, nZ), voxel_tallys1_sum(nX, nY, nZ), voxel_tallys1_total(nX, nY, nZ))
   allocate (voxel_tallys2(nX, nY, nZ), voxel_tallys2_sum(nX, nY, nZ), voxel_tallys2_total(nX, nY, nZ))
@@ -322,8 +289,6 @@ program monteCarloDriver
   allocate (fluxAbsorbed(nX, nY), fluxAbsorbedStats(nX, nY, 2))
   allocate (absorbedProfile(nZ), absorbedProfilestats(nZ, 2))
   allocate (absorbedVolume(nX, nY, nZ), absorbedVolumeStats(nX, nY, nZ, 2))
-!  voxel_tallys1(:,:,:)=0 ; voxel_tallys1_sum(:,:,:) = 0 ; voxel_tallys1_total(:,:,:) = 0
-!  voxel_tallys2(:,:,:)=0 ; voxel_tallys2_sum(:,:,:) = 0 ; voxel_tallys2_total(:,:,:) = 0
   meanFluxUpStats(:) = 0.0  ; meanFluxDownStats(:) = 0.0  ; meanFluxAbsorbedStats(:) = 0.0
   fluxUpStats(:, :, :) = 0.0  ; fluxDownStats(:, :, :) = 0.0  ; fluxAbsorbedStats(:, :, :) = 0.0
   absorbedProfilestats(:, :) = 0.0 ;  absorbedVolumeStats(:, :, :, :) = 0.0
@@ -358,41 +323,25 @@ program monteCarloDriver
 
    ! The initial direction and position of the photons are precomputed and 
    !   stored in an "illumination" object.
-!PRINT *, 'solarFlux=', solarFlux
   if(LW_flag >= 0.0)then
      allocate (voxel_weights(nX,nY,nZ),col_weights(nY,nZ), level_weights(nZ), temps(1:nX,1:nY,1:nZ), & 
 		 cumExt(1:nX,1:nY,1:nZ), ssa(1:nX,1:nY,1:nZ,1:numberOfComponents), &
 		 ext(1:nX,1:nY,1:nZ,1:numberOfComponents))
 call getInfo_Domain(thisDomain, temps=temps, status=status)
 call printStatus(status)
-!print *, 'Driver: got info Domain'
      call getInfo_Integrator(mcIntegrator, ssa, cumExt, ext)
-!print *, 'Driver: got info integrator'
      call emission_weighting(nX, nY, nZ, numberOfComponents, xPosition, yPosition, zPosition, &
 			     lambda, numPhotonsPerBatch, atms_photons, voxel_weights, col_weights, &
 			     level_weights, temps, ssa, cumExt, ext, surfaceTemp, &
 			     (1.0_8-surfaceAlbedo), emittedFlux) 
-!    DO iz= 1,nZ
-!      DO iy= 1,nY
-!          write (10, "(I5, I5, 2X, 3E30.20 )")  iy, iz, voxel_weights(nx,iy,iz), col_weights(iy,iz), level_weights(iz)
-!      END DO
-!    END DO
      solarFlux=emittedFlux
-!     solarFlux=31.25138117141156822262   !!!MAKE SURE TO COMMENT OUT THIS LINE. DIAGNOSTICE PURPOSES ONLY!!!
-!PRINT *, 'total atms photons=', atms_photons)
-!PRINT *, 'emittedFlux=', emittedFlux, ' solarFlux=', solarFlux
-!PRINT *, 'Driver: calculated emission weighting'
      incomingPhotons = new_PhotonStream (numberOfPhotons=1, atms_photons=atms_photons, voxel_weights=voxel_weights, col_weights=col_weights, level_weights=level_weights, nX=nX, nY=nY, nZ=nZ, randomNumbers=randoms, status=status)  
-!PRINT *, 'LW', ' incomingPhotons%SolarMu=', incomingPhotons%solarMu(1)
 call printStatus(status)
-!PRINT *, 'Driver: initialized single photon'
   else
      incomingPhotons = new_PhotonStream (solarMu, solarAzimuth, &
                                       numberOfPhotons = 1,   &
                                       randomNumbers = randoms, status=status)
-!PRINT *, 'not LW', 'incomingPhotons%SolarMu=', incomingPhotons%solarMu(1)
   end if
-!PRINT *, 'incomingPhotons%solarMu=', incomingPhotons%solarMu(1)
   call finalize_Domain(thisDomain)
   call printStatus(status)
 
@@ -401,17 +350,12 @@ call printStatus(status)
   call computeRadiativeTransfer (mcIntegrator, randoms, incomingPhotons, status, voxel_tallys2)
   call printStatus(status) 
   call finalize_PhotonStream (incomingPhotons)
-!PRINT *, 'Driver: succesfully tested photon initialization'
 
   call cpu_time(cpuTime1)
-!PRINT *, "called cpu_time"
   call synchronizeProcesses
-!PRINT *, "called synchronizeProcesses"
   cpuTimeSetup = sumAcrossProcesses(cpuTime1 - cpuTime0) 
-!PRINT *, "cpuTimeSetup=", cpuTimeSetup
   if (MasterProc) &
     print *, "Setup CPU time (secs, approx): ", int(cpuTimeSetup)
-!PRINT *, "setup completed"
   ! --------------------------------------------------------------------------
 
   ! The  loop over batches is for estimating the uncertainty in the flux and
@@ -426,30 +370,23 @@ call printStatus(status)
   end if 
   if (MasterProc) &
     print *, "Doing ", batchesPerProcessor, " batches on each of ", numProcs, " processors." 
-!PRINT *, "entering batch loop"
   batches: do batch = thisProc*batchesPerProcessor + 1, thisProc*batchesPerProcessor + batchesPerProcessor
     ! Seed the random number generator.
     !   Variable randoms holds the state of the random number generator. 
     randoms = new_RandomNumberSequence(seed = (/ iseed, batch /) )
-!PRINT *, batch
     ! The initial direction and position of the photons are precomputed and 
     !   stored in an "illumination" object. 
     if(LW_flag >= 0.0)then
        incomingPhotons = new_PhotonStream (numberOfPhotons=numPhotonsPerBatch, atms_photons=atms_photons, voxel_weights=voxel_weights, col_weights=col_weights,&
 level_weights=level_weights, nX=nX, nY=nY, nZ=nZ, randomNumbers=randoms, status=status, option1=voxel_tallys1)  
-!DO phtn=1,numPhotonsPerBatch
-!   PRINT *, incomingPhotons%xPosition(phtn), incomingPhotons%yPosition(phtn), incomingPhotons%zPosition(phtn)
-!ENDDO      
     else
        incomingPhotons = new_PhotonStream (solarMu, solarAzimuth,                &
                                         numberOfPhotons = numPhotonsPerBatch, &
                                         randomNumbers = randoms, status = status)
     end if
     call printStatus(status)
-!PRINT *, 'Driver: Initialized photons for batch', batch
     ! Now we compute the radiative transfer for this batch of photons. 
     call computeRadiativeTransfer (mcIntegrator, randoms, incomingPhotons, status, voxel_tallys2)
-!PRINT *, 'Driver: COmputed RT for batch', batch
      ! Get the radiative quantities:
      !   This particular integrator provides fluxes at the top and bottom 
      !   of the domain for both the domain mean and pixel level fluxes,
@@ -461,8 +398,6 @@ level_weights=level_weights, nX=nX, nY=nY, nZ=nZ, randomNumbers=randoms, status=
            absorbedProfile=absorbedProfile(:), volumeAbsorption=absorbedVolume(:, :, :), status = status)
 
      ! Accumulate the first and second moments of each quantity over the batches 
-!    voxel_tallys1_sum = voxel_tallys1_sum + voxel_tallys1
-!    voxel_tallys2_sum = voxel_tallys2_sum + voxel_tallys2
     meanFluxUpStats(1)       = meanFluxUpStats(1)       + meanFluxUp
     meanFluxUpStats(2)       = meanFluxUpStats(2)       + meanFluxUp**2
     meanFluxDownStats(1)     = meanFluxDownStats(1)     + meanFluxDown
@@ -483,11 +418,9 @@ level_weights=level_weights, nX=nX, nY=nY, nZ=nZ, randomNumbers=randoms, status=
     if (computeIntensity) then
       call reportResults(mcIntegrator, intensity = Radiance(:, :, :), status = status)
       RadianceStats(:, :, :,1) = RadianceStats(:, :, :,1) + Radiance(:, :, :)
-!PRINT *, "mean RadianceStats =", sum (RadianceStats(:, :, 1,1))/real (nX * nY)
       RadianceStats(:, :, :,2) = RadianceStats(:, :, :,2) + Radiance(:, :, :)**2
     endif
 	
-!WRITE(51, '(13E26.16 )') solarFlux, Radiance(1,1,1:4), RadianceStats(1,1,1:4,1), RadianceStats(1,1,1:4,2)
 
    if(recScatOrd) then 
       call reportResults(mcIntegrator, &
@@ -509,7 +442,6 @@ level_weights=level_weights, nX=nX, nY=nY, nZ=nZ, randomNumbers=randoms, status=
         intensityByScatOrdStats(:,:,:,:,2) = intensityByScatOrdStats(:,:,:,:,2) + ( solarFlux*intensityByScatOrd(:,:,:,:))**2
       end if
    end if
-!PRINT *, 'Driver: Reported results for batch', batch
      ! Release the photon "illumination" object memory
     call finalize_PhotonStream (incomingPhotons)
     call printStatus(status)
@@ -523,8 +455,6 @@ level_weights=level_weights, nX=nX, nY=nY, nZ=nZ, randomNumbers=randoms, status=
   !
   ! Accumulate statistics from across all the processors
   !
-! voxel_tallys1_total = sumAcrossProcesses(voxel_tallys1_sum)
-! voxel_tallys2_total = sumAcrossProcesses(voxel_tallys2_sum)
 
   ! Domain-mean fluxes
   
@@ -544,7 +474,6 @@ level_weights=level_weights, nX=nX, nY=nY, nZ=nZ, randomNumbers=randoms, status=
   ! Radiance
   if (computeIntensity) &
     RadianceStats(:, :, :, :) = sumAcrossProcesses(RadianceStats)
-!PRINT *, "mean total RadianceStats =", sum(RadianceStats(:, :, 1,1))/real (nX * nY)  
 
    if(recScatOrd) then
      meanFluxUpByScatOrdStats(:,:) = sumAcrossProcesses(meanFluxUpByScatOrdStats)
@@ -557,14 +486,6 @@ level_weights=level_weights, nX=nX, nY=nY, nZ=nZ, randomNumbers=randoms, status=
      end if
    end if
 
-!PRINT *, 'Driver: accumulated results'
-!  close(11)
-!  close(12)
-!  close(13)
-!  close(14)
-!  close(15)
-!  close(16)
-!  close(17)
 
   call synchronizeProcesses
   call cpu_time(cpuTime2)
@@ -601,7 +522,6 @@ level_weights=level_weights, nX=nX, nY=nY, nZ=nZ, randomNumbers=randoms, status=
   absorbedVolumeStats(:, :, :, 1) = absorbedVolumeStats(:, :, :, 1)*solarFlux
   if (computeIntensity) then
     RadianceStats(:, :, :, :) = RadianceStats(:, :, :, :)/numBatches
-!PRINT *, "mean Radiance stats including solarflux =", sum (RadianceStats(:, :, 1,1))/real (nX * nY)
     RadianceStats(:, :, :,2) = sqrt( max(0.0, RadianceStats(:, :, :,2)*solarFlux**2 - (solarFlux*RadianceStats(:, :, :,1))**2) /(numBatches-1))
     RadianceStats(:, :, :, 1) = RadianceStats(:, :, :, 1)*solarFlux
   endif
@@ -623,16 +543,7 @@ level_weights=level_weights, nX=nX, nY=nY, nZ=nZ, randomNumbers=randoms, status=
     end if
   end if
 
-!PRINT *, 'Driver: calculated radiative quantities'
   if(MasterProc) then ! Write a single output file. 
-!    open(unit=12, file=trim(photon_file) , status='UNKNOWN')
-
-!    DO k = 1, nZ
-!      DO j = 1, nY
-!        write(12,"(100I12)") voxel_tallys1_total(:,j,k)
-!      end do
-!    end do
-!    close(12)
 
     if(any( (/ len_trim(outputFluxFile),      len_trim(outputAbsProfFile), &
                len_trim(outputAbsVolumeFile), len_trim(outputRadFile)      /) > 0)) then 
@@ -933,7 +844,6 @@ contains
     logical                :: recScatOrd
     integer                :: i, N
 
-!    real, dimension(numRecScatOrd+1)  :: scatOrderHolder = (/(REAL(i),i=0,numRecScatOrd)/)
     ! ---------------------------------------------------------------------------
     numX = size(xPosition) - 1; numY = size(yPosition) - 1; numZ = size(zPosition) - 1
     computeIntensity = present(intensityMus) .and. present(intensityPhis) .and. &

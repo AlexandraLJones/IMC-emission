@@ -9,19 +9,13 @@ mieObjs =  $(CodeDir)/characterUtils.o $(CodeDir)/numericUtilities.o \
            
 optObjs = $(mieObjs) $(CodeDir)/inversePhaseFunctions.o $(CodeDir)/opticalProperties.o
 
-all: MakeMieTable PhysicalPropertiesToDomain PhysicalPropertiesToDomainNew \
-     netCDFPhysPropToDomainNew 
-#OpticalPropertiesToDomain 
+all: MakeMieTable PhysicalPropertiesToDomain netCDFPhysPropToDomainNew 
 
 # Object files
 #
 MakeMieTable.o: MakeMieTable.f95  $(mieObjs)
 
 PhysicalPropertiesToDomain.o: PhysicalPropertiesToDomain.f95 $(optObjs)
-
-PhysicalPropertiesToDomainNew.o: PhysicalPropertiesToDomainNew.f95 $(optObjs)
-
-#OpticalPropertiesToDomain.o: OpticalPropertiesToDomain.f95 $(optObjs)
 
 netCDFPhysPropToDomainNew.o: netCDFPhysPropToDomainNew.f95 $(optObjs)
 
@@ -31,12 +25,8 @@ MakeMieTable: MakeMieTable.o mieindsub.o RefractiveIndex-IceAndWater.o $(mieObjs
 
 PhysicalPropertiesToDomain: PhysicalPropertiesToDomain.o $(optObjs)
 
-PhysicalPropertiesToDomainNew: PhysicalPropertiesToDomainNew.o $(optObjs)
-
-#OpticalPropertiesToDomain: OpticalPropertiesToDomain.o $(optObjs)
-
 netCDFPhysPropToDomainNew: netCDFPhysPropToDomainNew.o $(optObjs)
 
 clean::
 	-/bin/rm *.lst *.mod *.o MakeMieTable PhysicalPropertiesToDomain \
-        PhysicalPropertiesToDomainNew netCDFPhysPropToDomainNew #OpticalPropertiesToDomain 
+        netCDFPhysPropToDomainNew  

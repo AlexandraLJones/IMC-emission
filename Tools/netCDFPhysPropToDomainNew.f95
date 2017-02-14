@@ -162,7 +162,6 @@ PRINT *, "read properties"
    PRINT *, "Check dimensions of temperature field. must be either 1 or 3 but is: ", Tdim
   end if
 
-!Reff(2,:,:,:) = 100.0  
 
 if(any(temps(:,:,:) .lt. 0.0_8)) PRINT *, "temperatures negative"
 
@@ -175,8 +174,6 @@ if(any(temps(:,:,:) .lt. 0.0_8)) PRINT *, "temperatures negative"
  zEdges = zEdges/1000.0_8
  yEdges = yEdges/1000.0_8
  xEdges = xEdges/1000.0_8
-! mass should stay in grams/(meter cubed) !
-!MassCont = MassCont/(1000.0**3)
 
    ! Read the molecular absorption extinction file if there is one
   allocate (GasExt(nZt))
@@ -261,8 +258,6 @@ PRINT *, "numscatTables= ", numScatTables
           ssa(ix,iy,iz,iscat) = (1-f)*ssaTable(il,iscat) + f*ssaTable(il+1,iscat)
 	  if(ssa(ix,iy,iz,iscat) .gt. 1.0_8)then
 	    ssa(ix,iy,iz,iscat) = 1.0_8
-!PRINT *, "ix, iy, iz, iscat, ssa", ix, iy, iz, iscat, ssa(ix,iy,iz,iscat)
-!STOP
 	  end if
           ! Chose the closest phase function
           if (f < 0.5) then
@@ -574,7 +569,6 @@ subroutine read_particle_file3DT (parfile, filekind, nx, ny, nzp, nscattab, &
 
   if(any(ncStatus(:) /= nf90_NoErr)) then
      PRINT *, "read_particle_file3DT: problem reading  properties file. ", ncStatus(1:14)
-!     PRINT *, trim(nf90_strerror(ncStatus(8)))
      STOP
   end if
 

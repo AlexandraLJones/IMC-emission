@@ -232,8 +232,7 @@ contains
 
     ! Local variables
     integer :: i, numberOfAtmsPhotons, startPhoton,  ii, ij, ik
-    real    :: RN!, test
-!    real, dimension(0:nx*ny*nz)                      :: temp1, temp2
+    real    :: RN
     
     if(present(option1))option1=0
 
@@ -242,7 +241,6 @@ contains
       call setStateToFailure(status, "setIllumination: must ask for non-negative number of photons.")
        
     if(.not. stateIsFailure(status)) then
-!PRINT *, "number of photons > 0"
       allocate(photons%xPosition(numberOfPhotons),   photons%yPosition(numberOfPhotons), &
                photons%zPosition(numberOfPhotons),                                       &
                photons%solarMu(numberOfPhotons),  photons%solarAzimuth(numberOfPhotons))
@@ -251,14 +249,11 @@ contains
      ! divide the photons into sfc vs. atms sources 
       numberOfAtmsPhotons=MIN(numberOfPhotons,atms_photons)
       if ( numberOfAtmsPhotons .gt. 0)then
-!PRINT *, "numberOfAtmsPhotons .gt. 0"
           startPhoton = 1
      
           do i = startPhoton,  numberOfAtmsPhotons ! Loop over photons from atms source 
-!           do while (i .le. numberOfPhotoins) 
             ! Random initial positions
             RN = getRandomReal(randomNumbers)
-!if(i .eq. 1)PRINT *, "i=", i, " RN=", RNi          
             DO ik=1,nz
               if(RN .le. level_weights(ik))then
                 DO ij=1,ny
@@ -275,23 +270,13 @@ contains
               endif
             ENDDO
 
-!PRINT *, RN, ii, ij, ik
-!write(16,"(I5 ,2X, E30.20)") i, voxel_weights(ii,ij,ik)-RN
-
- !if(present(option1))then
- !   option1(ii,ij,ik)=option1(ii,ij,ik)+1
- !end if 
 
             photons%zPosition(i) = ((ik-1)*(1.0_8)/nz) + dble(getRandomReal(randomNumbers)/nz) ! The first term represents the fractional position of the layer bottom in the column, such that ik=1 corresponds to a position of 0. The second term respresents the position within the layer.
             if(ik .eq. 1 .and. photons%zPosition(i) .eq. 0.0_8) photons%zPosition(i)=0.0_8+spacing(1.0_8)
             if(ik .eq. nz .and. photons%zPosition(i) .gt. 1.0_8-2.0_8*spacing(1.0_8)) photons%zPosition(i)=photons%zPosition(i) - (2.0_8*spacing(1.0_8))
             photons%xPosition(i) = ((ii -1)*1.0_8/nx) + dble(getRandomReal(randomNumbers)*(1.0/nx)) 
             photons%yPosition(i) = ((ij -1)*1.0_8/ny) + dble(getRandomReal(randomNumbers)*(1.0/ny)) 
-!if(i .eq. 1) PRINT *, 'ind= ', ind, 'i= ', ik, 'j= ', ij, 'k= ', ik, 'xPos= ', photons%xPosition(i)
             ! Random initial directions
-!            test=getRandomReal(randomNumbers)
-!PRINT *, 'i=', i, ' atms_rand=', test 
-!            photons%solarMu(i) = 1-(2.*test)
           DO
             photons%solarMu(i) = 1-(2.*getRandomReal(randomNumbers))    ! This formula is from section 10.5 of '3D radiative transfer in cloudy atmospheres'. These angles will stay the same...truly random numbers, since LW emission is isotropic. But the Mu no longer has to be negative. The name "solarMu" should really just be "sourceMu" 
             if(abs(photons%solarMu(i)) > 2 * tiny (photons%solarMu(i)))exit  ! This ensures that there is some vertical component to the photon trajectory, so the photon doesn't get permanently stuck in the layer it's initialized in
@@ -309,9 +294,6 @@ contains
         photons%xPosition(   i) = getRandomReal(randomNumbers) ! Assuming the surface temperature and emissivities are the same everywhere the x,y values don't need to be weighted
         photons%yPosition(   i) = getRandomReal(randomNumbers)
         ! Random initial directions
-!        test = getRandomReal(randomNumbers)
-!PRINT *, 'i=', i, ' sfc_rand=', test
-!         photons%solarMu(     i) = sqrt(test)
        DO
         photons%solarMu(     i) = sqrt(getRandomReal(randomNumbers))    ! This formula is from section 10.5 of '3D radiative trasnfer in cloudy atmospheres'. These angles will stay the same...truly random numbers, since LW emission is isotropic. But the Mu has to be positive for a sfc source. The name "solarMu" should really just be "sourceMu"
         if(abs(photons%solarMu(i)) > 2 * tiny (photons%solarMu(i)))exit  ! This ensures that there is some vertical component to the photon trajectory, so the photon doesn't get permanently stuck in the lowest layer. this is especially bad when there is no atmospheric extinction because then the photon will never leave the domain or hit the surface or become extinct. Thus we enter an infinite loop
@@ -320,7 +302,6 @@ contains
       end do  !loop over i
         photons%zPosition(numberOfAtmsPhotons+1:numberOfPhotons) = 0.0_8 ! must be from the sfc. Make sure this value makes sense for how the position is interpretted
      end if
-!PRINT *,  ' photons%solarMu=', photons%solarMu(1)
       photons%currentPhoton = 1
       call setStateToSuccess(status) 
     end if    
@@ -358,7 +339,6 @@ contains
       yPosition    = photons%yPosition(photons%currentPhoton)
       zPosition    = photons%zPosition(photons%currentPhoton)
       solarMu      = photons%solarMu(photons%currentPhoton)
-!PRINT *, 'solarMu=', solarMu
       solarAzimuth = photons%solarAzimuth(photons%currentPhoton)
       photons%currentPhoton = photons%currentPhoton + 1
     end if
@@ -404,14 +384,13 @@ contains
      real(8), dimension(nz), intent(out)          :: level_weights
      real(8),                                intent(out)  :: totalFlux
      !Local variables
-     integer                                           :: ix, iy, iz!, last
+     integer                                           :: ix, iy, iz
      real(8)                                              ::  sfcPlanckRad, sfcPower,  atmsPower, totalPower, totalAbsCoef, b, lambda
      real(8)                                          :: previous, corr_contrib,corr,temp_sum, prev_exact
      real(8), dimension(1:nz)                          :: dz
      real(8), dimension(1:ny)                             :: dy
      real(8), dimension(1:nx)                             :: dx
      real(8)                                               :: atmsPlanckRad
-!     real, dimension(1:nx, 1:ny)                       :: atmsColumn_power
 
      real(8), parameter                                   :: h=6.62606957e-34 !planck's constant [Js]
      real(8), parameter                                   :: c=2.99792458e+8 !speed of light [ms^-1]
@@ -422,23 +401,17 @@ contains
      lambda=lambda_u/(10.0_8**6.0_8) ! convert lambda from micrometers to meters
      b=h*c/(k*lambda)
 
-!PRINT *, h, c, k, lambda, Pi, a, b
 !calculate arrays of depths from the position arrays in km
      dz(1:nz)=zPosition(2:nz+1)-zPosition(1:nz)
      dy(1:ny)=yPosition(2:ny+1)-yPosition(1:ny)
      dx(1:nx)=xPosition(2:nx+1)-xPosition(1:nx)
 
 
-!dz(1:nz)= 0.04					! be sure to remove this line after debugging FOR DIAGNOSTIC PURPOSES ONLY!
-
-!     last=nx*ny*nz ! the value of the index of the last element of the voxel_weights array
-
 !first compute atms planck radiances then combine algorithms from mcarWld_fMC_srcDist and mcarWld_fMC_srcProf to determine the  weights of each voxel taking into consideration the ones that would be emitted from the surface instead.
      if (emiss .eq. 0.0_8 .or. sfcTemp .eq. 0.0_8)then
         sfcPower=0.0_8
      else
         sfcPlanckRad=(a/((lambda**5.0_8)*(exp(b/sfcTemp)-1.0_8)))/(10.0_8**6.0_8)
-!PRINT *, "sfcPlanckRad=", sfcPlanckRad, "sfcTemp", sfcTemp
         sfcPower= Pi*emiss*sfcPlanckRad*(xPosition(nx+1)-xPosition(1))*(yPosition(ny+1)-yPosition(1))*(1000.0_8**2.0_8)     ! [W] factor of 1000^2 needed to convert area from km to m
      end if
 
@@ -457,32 +430,21 @@ contains
          do ix = 1, nx
            atmsPlanckRad= (a/((lambda**5.0_8)*(exp(b/atmsTemp(ix,iy,iz))-1.0_8)))/(10.0_8**6.0_8) ! the 10^-6 factor converts it from Wsr^-1m^-3 to Wm^-2sr^-1micron^-1
            totalAbsCoef=cumExt(ix,iy,iz)-sum(ssas(ix,iy,iz,:) * ext(ix,iy,iz,:))
-!PRINT *, "atmsPlanckRad=", atmsPlanckRad, "totalAbsCoef=", totalAbsCoef, "lambda=", lambda, "atmsTemp=", atmsTemp(ix,iy,iz), "Pi=", Pi
-!if (ix .eq. 1 .and. iy .eq. 1 .and. iz .eq. 1) PRINT *, cumExt(ix,iy,iz), ssas(ix,iy,iz,:), ext(ix,iy,iz,:), sum(ssas(ix,iy,iz,:) * ext(ix,iy,iz,:)), totalAbsCoef
            corr_contrib = (4.0_8*Pi* atmsPlanckRad * totalAbsCoef*dz(iz))-corr     ! [Wm^-2] 
            temp_sum = previous + corr_contrib
            corr = (temp_sum - previous)-corr_contrib
            previous = temp_sum
            voxel_weights(ix,iy,iz) = previous
            prev_exact=prev_exact + dble(1.0_8/(nx*ny*nz))
-!           write(11, "(6E30.20)") atmsTemp(ix,iy,iz), atmsPlanckRad, totalAbsCoef, 4.0*Pi* atmsPlanckRad * totalAbsCoef*dz(iz), dz(iz), voxel_weights(ix,iy,iz) 
-!            write(11, "(9E30.20)") atmsTemp(ix,iy,iz), atmsPlanckRad, totalAbsCoef, 4.0_8*Pi* atmsPlanckRad * totalAbsCoef*dz(iz), dz(iz), voxel_weights(ix,iy,iz), dble( ((iz-1)*nx*ny)+((iy-1)*nx)+ix  )/dble(nx*ny*nz), prev_exact,corr
          end do ! i loop
          col_weights(iy,iz)= previous
-!          write(10, "(3I5, A, E30.20, A, E30.20)" ) ix, iy, iz, 'voxel_weights= ', voxel_weights(ix-1,iy,iz), 'col_weights= ', col_weights(iy,iz)
        end do   ! j loop
        level_weights(iz)= previous
-!       write(10, "(3I5, A, E30.20, A, E30.20, A, E30.20)" ) ix, iy, iz, 'voxel_weights= ', voxel_weights(ix-1,iy-1,iz), 'col_weights= ', col_weights(iy-1,iz), 'level_weights= ', level_weights(iz)
      end do     ! k loop
     end if
           if (voxel_weights(nx,ny,nz) .gt. 0.0_8) then
                atmsPower = voxel_weights(nx,ny,nz)*(xPosition(nx+1)-xPosition(1))*(yPosition(ny+1)-yPosition(1))*(1000.0_8**2.0_8)/dble(nx*ny)  ! [W] total power emitted by atmosphere. Factor of 1000^2 is to convert dx and dy from km to m
                voxel_weights(:,:,:)=voxel_weights(:,:,:)/voxel_weights(nx,ny,nz)     ! normalized
-!               do iz = 1, nz
-!                  do iy = 1, ny
-!                     write(17, "(100E35.25)") voxel_weights(:,iy,iz)
-!                  end do
-!               end do    
                col_weights(:,:)=col_weights(:,:)/col_weights(ny,nz)
                level_weights(:)=level_weights(:)/level_weights(nz)
 
@@ -491,15 +453,12 @@ contains
                level_weights(nz)=1.0_8      
           end if
       
-!PRINT *, 'level_weights= ', level_weights, 'col_weights= ', col_weights
 
      totalPower=sfcPower + atmsPower
      if (totalPower .eq. 0.0_8)then
         PRINT *, 'Neither surface nor atmosphere will emitt photons since total power is 0. Not a valid solution'
      end if
      totalFlux=totalPower/((xPosition(nx+1)-xPosition(1))*(yPosition(ny+1)-yPosition(1))*(1000.0_8**2.0_8))  ! We want the units to be [Wm^-2] but the x and y positions are in km
-!PRINT *, 'atmsPower= ',atmsPower, 'sfcPower= ', sfcPower, ' totalFlux=', totalFlux, ' totalArea=', (xPosition(nx+1)-xPosition(1))*(yPosition(ny+1)-yPosition(1)), &
-!         ' average column area=', (SUM(dx)/dble(nx))*(SUM(dy)/dble(ny)), (xPosition(nx+1)-xPosition(1))*(yPosition(ny+1)-yPosition(1))/dble(nx*ny), ' expected radiance=', atmsPlanckRad*(1.0_8-exp(-1.0_8*totalAbsCoef*(zPosition(nz+1)-zPosition(1))))
      if (atmsPower .eq. 0.0_8)then
          atmsPhotons=0
      else   
