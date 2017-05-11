@@ -1,0 +1,90 @@
+#!/bin/csh
+
+#PBS -l nodes=50:ppn=32:xe
+## set the number of nodes and number of processes per node (max 32)
+#PBS -l walltime=03:00:00
+## set the wallclock time
+#PBS -N cubic 
+## set the job name
+#PBS -q normal
+#PBS -o ${PBS_JOBID}.out
+#PBS -j oe
+#PBS -m bea
+
+echo `date`
+
+# here's an example of how to set up a run directory on a scratch file system
+#cd ~/IMC+emission/ # change to the directory containing all your IMC+emission subfolders
+#mkdir -p /scratch/$PBS_JOBID # create a unique directory on scratch
+# copy the current state of the model into your new scratch directory
+# cp -r ./Domain-Files ./Drivers ./Integrators ./namelist ./out ./run ./src ./Tools  --target-directory=/scratch/$PBS_JOBID
+# now change to that scratch directory
+# cd /scratch/sciteam/aljones4/$PBS_JOBID
+
+set batches = 200000
+set photons = 50000
+
+foreach lambda (LW SW)
+	if ($lambda == "SW")then
+                set LW_flag = -1.0
+        else
+                set LW_flag = 1.0
+        endif
+	foreach atms (test2_abs_scat_homogcubeSHDOM.dom)
+		set domfile =(`echo ./Domain-Files/${atms}*.dom`)
+	   foreach Ts (298.1)
+		foreach albedo (0.0)
+#		    foreach  x (seq 1 1 1) # if you want to do multiple runs with unique random numbers set this sequence to a range larger than 1
+                        set seed = (`hexdump -n3 -e\"%u\" /dev/random`)
+			set outfile =(`echo ./out/bench_${lambda}_4.0_${atms}_${Ts}_${albedo}_${seed}_${batches}_${photons}.nc`)
+						
+			echo \&radiativeTransfer		>  ./namelist/basic.nml
+			echo   solarFlux = 1.0,			>> ./namelist/basic.nml
+			echo solarMu = 0.866			>> ./namelist/basic.nml
+			echo solarAzimuth = 60.0,		>> ./namelist/basic.nml
+			echo surfaceAlbedo = $albedo		>> ./namelist/basic.nml
+			echo surfaceTemp = ${Ts},		>> ./namelist/basic.nml
+			echo intensityMus = 1.0, 0.8660254038, 0.5, 0.0348994967,  >> ./namelist/basic.nml
+			echo intensityPhis = 60.,60.,60.,60.,	>> ./namelist/basic.nml
+			echo angleFill = .false.		>> ./namelist/basic.nml
+			echo   thetaFill =  -1.,		>> ./namelist/basic.nml
+			echo   phiFill = -1.,			>> ./namelist/basic.nml
+			echo LW_flag = $LW_flag			>> ./namelist/basic.nml
+			echo lambda = 4.0,			>> ./namelist/basic.nml
+			echo /					>> ./namelist/basic.nml
+			echo \&monteCarlo			>> ./namelist/basic.nml
+			echo numPhotonsPerBatch = $photons	>> ./namelist/basic.nml
+			echo numBatches = $batches		>> ./namelist/basic.nml
+			echo   iseed = $seed,			>> ./namelist/basic.nml
+			echo   nPhaseintervals = 1001		>> ./namelist/basic.nml
+			echo /					>> ./namelist/basic.nml
+			echo \&algorithms			>> ./namelist/basic.nml
+			echo useRayTracing = .true.,		>> ./namelist/basic.nml
+			echo useRussianRoulette = .false.,	>> ./namelist/basic.nml
+			echo useRussianRouletteForIntensity = .false.,  >> ./namelist/basic.nml
+			echo zetaMin = 0.3,			>> ./namelist/basic.nml
+			echo useHybridPhaseFunsForIntenCalcs = .false.,  >> ./namelist/basic.nml
+			echo hybridPhaseFunWidth = 0.,		>> ./namelist/basic.nml
+			echo numOrdersOrigPhaseFunIntenCalcs = 0,  >> ./namelist/basic.nml
+			echo limitIntensityContributions = .false.,  >> ./namelist/basic.nml
+			echo maxIntensityContribution = 0.,	>> ./namelist/basic.nml
+			echo /					>> ./namelist/basic.nml
+			echo \&fileNames				>> ./namelist/basic.nml
+			echo domainFileName = \"${domfile}\",	>> ./namelist/basic.nml
+			echo outputNetcdfFile = \"${outfile}\"	>> ./namelist/basic.nml
+			echo /					>> ./namelist/basic.nml
+			echo \&output				>> ./namelist/basic.nml
+			echo reportAbsorptionProfile = .true.,	>> ./namelist/basic.nml
+			echo reportVolumeAbsorption = .true.	>> ./namelist/basic.nml
+			echo recScatOrd = .false.		>> ./namelist/basic.nml
+			echo numRecScatOrd = -1			>> ./namelist/basic.nml
+			echo /					>> ./namelist/basic.nml
+
+			echo started  run from $domfile at `date` ouput to $outfile
+			aprun -n 1600 ./Drivers/monteCarloDriver ./namelist/basic.nml
+			echo job finished at `date`
+		    end
+		end
+            end
+#	end
+end

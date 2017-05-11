@@ -2,9 +2,9 @@
 
 #PBS -l nodes=125:ppn=32:xe
 ## set the number of nodes and number of processes per node (max 32)
-#PBS -l walltime=02:30:00
+#PBS -l walltime=03:00:00
 ## set the wallclock time
-#PBS -N reciprocity
+#PBS -N Case4
 ## set the job name
 #PBS -q normal
 #PBS -o ${PBS_JOBID}.out
@@ -21,51 +21,44 @@ echo `date`
 # now change to that scratch directory
 # cd /scratch/sciteam/aljones4/$PBS_JOBID
 
-
-set batches = 200000
+set batches = 2000000
 set photons = 50000
-set albedo  = 0.0
 
 
-foreach lambda (SW)
+foreach lambda (LW)
 	if ($lambda == "SW")then
                 set LW_flag = -1.0
         else
                 set LW_flag = 1.0
         endif
-    foreach atms(i3rc_Case4_lescu_2.13)
+    foreach atms(Case4_absonly Case4_absScat)
+        if ($atms == "Case4_absonly")then
+                set albedo  = 0.0
+        else
+                set albedo  = 0.1
+        endif
 	set   domfile =(`echo ./Domain-Files/${atms}.dom`)
-	foreach mu0(0.5 0.8660254)
-	  if ($mu0 == "0.5")then
-                set mu1 = 0.8660254
-		set az0 = 60.0
-		set az1 = 10.0
-          else
-                set mu1 = 0.5
-		set az0 = 190.0
-		set az1 = 240.0
-          endif
 
-	set outfile =(`echo ./out/${lambda}_${atms}_${mu0}_${mu1}_${batches}_${photons}.nc`)
-						
+	set outfile =(`echo ./out/${lambda}_${atms}_${albedo}_${batches}_${photons}.nc`)
+ 	set seed = (`hexdump -n3 -e\"%u\" /dev/random`)					
 		echo \&radiativeTransfer		>  ./namelist/basic.nml
-		echo   solarFlux = 1.0,			>> ./namelist/basic.nml
-		echo solarMu = $mu0		>> ./namelist/basic.nml
-		echo solarAzimuth = $az0		>> ./namelist/basic.nml
+		echo   solarFlux = 8.6,			>> ./namelist/basic.nml
+		echo solarMu = 0.8660254038		>> ./namelist/basic.nml
+		echo solarAzimuth = 60.0,		>> ./namelist/basic.nml
 		echo surfaceAlbedo = $albedo		>> ./namelist/basic.nml
-		echo surfaceTemp = 290.6,		>> ./namelist/basic.nml
-		echo intensityMus = $mu1,		>> ./namelist/basic.nml
-		echo intensityPhis = $az1,		>> ./namelist/basic.nml
+		echo surfaceTemp = 303.1,		>> ./namelist/basic.nml
+		echo intensityMus = 1.0,		>> ./namelist/basic.nml
+		echo intensityPhis = 0.,		>> ./namelist/basic.nml
 		echo angleFill = .false.		>> ./namelist/basic.nml
 		echo   thetaFill =  -1.,		>> ./namelist/basic.nml
 		echo   phiFill = -1.,			>> ./namelist/basic.nml
 		echo LW_flag = $LW_flag			>> ./namelist/basic.nml
-		echo lambda = 2.13,			>> ./namelist/basic.nml
+		echo lambda = 11.0,			>> ./namelist/basic.nml
 		echo /					>> ./namelist/basic.nml
 		echo \&monteCarlo			>> ./namelist/basic.nml
 		echo numPhotonsPerBatch = $photons	>> ./namelist/basic.nml
 		echo numBatches = $batches		>> ./namelist/basic.nml
-		echo   iseed = 87,			>> ./namelist/basic.nml
+		echo   iseed = $seed			>> ./namelist/basic.nml
 		echo   nPhaseintervals = 1001		>> ./namelist/basic.nml
 		echo /					>> ./namelist/basic.nml
 		echo \&algorithms			>> ./namelist/basic.nml
@@ -94,5 +87,4 @@ foreach lambda (SW)
 		aprun -n 4000 ./Drivers/monteCarloDriver ./namelist/basic.nml
 		echo job finished at `date`
 	end
-    end
 end
